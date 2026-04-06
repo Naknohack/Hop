@@ -1771,11 +1771,11 @@ gg.__namecall = newcclosure(function(...)
     end
     return old(...)
 end)
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/viplam087-png/Hjj/main/LibraryRedz.lua"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Naknohack/RedzUi/refs/heads/main/UiRedzhub.lua"))()
 local Window = Library:MakeWindow({
-  Title = "Skira Hub : Blox Fruits",
-  SubTitle = "by realphong",
-  SaveFolder = "Hiru Hub | Blox Fruits.lua"
+  Title = "Nak Hub V4 : Blox Fruits",
+  SubTitle = "by 26/6/2026",
+  SaveFolder = "NakHub | Blox Fruits.lua"
 })
 local Discord = Window:MakeTab({
   Title = "Tab Discord",
