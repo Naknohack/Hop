@@ -1,4 +1,4 @@
---// Fast Attack Ultra Optimized
+--// EXTREME FAST ATTACK 1ms
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -8,7 +8,6 @@ local Workspace = game:GetService("Workspace")
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 
---// Net
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Net = Modules:WaitForChild("Net")
 
@@ -16,65 +15,57 @@ local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
 local RegisterHit = Net:WaitForChild("RE/RegisterHit")
 local ShootGunEvent = Net:WaitForChild("RE/ShootGunEvent")
 
---// Config
-local ATTACK_DISTANCE = 180
-local SCAN_DELAY = 0.12
+--// CONFIG
+local DIST = 200
+local DELAY = 0.001 -- 1ms
 
---// Cache
-local lastScan = 0
-local cachedTarget = nil
-local EnemyRootPart = nil
+local lastClick = 0
 
---// Get Character nhanh
+-- update character
 Player.CharacterAdded:Connect(function(c)
     Character = c
 end)
 
---// Check sống
-local function IsAlive(model)
-    local h = model and model:FindFirstChild("Humanoid")
+local function IsAlive(m)
+    local h = m and m:FindFirstChild("Humanoid")
     return h and h.Health > 0
 end
 
---// Tìm target (chỉ 1)
+--// target gần nhất
 local function GetTarget()
-    local now = tick()
-    if now - lastScan < SCAN_DELAY then
-        return cachedTarget
-    end
-    lastScan = now
-    cachedTarget = nil
-
     if not Character or not IsAlive(Character) then return end
     local myRoot = Character:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
     local pos = myRoot.Position
+    local closest, dist = nil, DIST
 
-    local function scan(folder)
-        if not folder then return end
-        for _, e in ipairs(folder:GetChildren()) do
-            if e ~= Character and IsAlive(e) then
-                local root = e:FindFirstChild("HumanoidRootPart")
-                if root then
-                    if (pos - root.Position).Magnitude <= ATTACK_DISTANCE then
-                        EnemyRootPart = root
-                        cachedTarget = {e, root}
-                        return true
+    for _, folder in ipairs({Workspace:FindFirstChild("Enemies"), Workspace:FindFirstChild("Characters")}) do
+        if folder then
+            for _, e in ipairs(folder:GetChildren()) do
+                if e ~= Character and IsAlive(e) then
+                    local root = e:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        local mag = (pos - root.Position).Magnitude
+                        if mag < dist then
+                            dist = mag
+                            closest = root
+                        end
                     end
                 end
             end
         end
     end
 
-    if scan(Workspace:FindFirstChild("Enemies")) then return cachedTarget end
-    if scan(Workspace:FindFirstChild("Characters")) then return cachedTarget end
-
-    return cachedTarget
+    return closest
 end
 
---// Attack chính
+--// attack
 local function Attack()
+    local now = tick()
+    if now - lastClick < DELAY then return end
+    lastClick = now
+
     if not Character or not IsAlive(Character) then return end
 
     local tool = Character:FindFirstChildOfClass("Tool")
@@ -83,26 +74,22 @@ local function Attack()
     local target = GetTarget()
     if not target then return end
 
-    --// Gun
+    -- GUN
     if tool.ToolTip == "Gun" then
         tool:Activate()
-
-        local pos = target[2].Position
-        for i = 1, 2 do -- spam nhẹ
-            ShootGunEvent:FireServer(pos, {target[2]})
-        end
+        ShootGunEvent:FireServer(target.Position, {target})
         return
     end
 
-    --// Melee
+    -- MELEE
     RegisterAttack:FireServer(0)
-    RegisterHit:FireServer(target[2], {target})
+    RegisterHit:FireServer(target, {{Character, target}})
 end
 
---// Loop nhanh
+-- loop (nhanh nhất có thể)
 RunService.RenderStepped:Connect(Attack)
 
---// Hook tăng tốc thêm
+-- hook spam thêm
 local mt = getrawmetatable(game)
 local old = mt.__namecall
 setreadonly(mt, false)
