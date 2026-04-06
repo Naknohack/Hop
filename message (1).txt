@@ -1,138 +1,118 @@
--- Fast Attack BeoBéo
+--// Fast Attack Ultra Optimized
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+
+--// Net
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local Net = Modules:WaitForChild("Net")
+
 local RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
 local RegisterHit = Net:WaitForChild("RE/RegisterHit")
 local ShootGunEvent = Net:WaitForChild("RE/ShootGunEvent")
 
-getgenv().PMT_GunFast = true
-getgenv().PMT_GunFast_Delay = 0
-getgenv().PMT_GunFast_PrimeEvery = 0
+--// Config
+local ATTACK_DISTANCE = 180
+local SCAN_DELAY = 0.12
 
-local Config = {
-    AttackDistance = 300,
-    AttackMobs = true,
-    AttackPlayers = true,
-    AttackCooldown = 0,
-    HitboxLimbs = {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"},
-    AutoClickEnabled = true
-}
+--// Cache
+local lastScan = 0
+local cachedTarget = nil
+local EnemyRootPart = nil
 
-local MIN_DELAY = 0.001
-local MAX_DELAY = 0.003
-local lastAttackTime = 0
+--// Get Character nhanh
+Player.CharacterAdded:Connect(function(c)
+    Character = c
+end)
 
-local FastAttack = {}
-FastAttack.__index = FastAttack
-
-function FastAttack.new()
-    local self = setmetatable({
-        EnemyRootPart = nil,
-        HitFunction = nil
-    }, FastAttack)
-
-    pcall(function()
-        local ls = Player:WaitForChild("PlayerScripts"):FindFirstChildOfClass("LocalScript")
-        if ls and getsenv then 
-            self.HitFunction = getsenv(ls)._G.SendHitsToServer 
-        end
-    end)
-    return self
-end
-
-function FastAttack:IsEntityAlive(e)
-    local h = e and e:FindFirstChild("Humanoid")
+--// Check sống
+local function IsAlive(model)
+    local h = model and model:FindFirstChild("Humanoid")
     return h and h.Health > 0
 end
 
-function FastAttack:GetBladeHits(c, dist)
-    local pos = c:GetPivot().Position
-    local bh = {}
-    dist = dist or Config.AttackDistance
+--// Tìm target (chỉ 1)
+local function GetTarget()
+    local now = tick()
+    if now - lastScan < SCAN_DELAY then
+        return cachedTarget
+    end
+    lastScan = now
+    cachedTarget = nil
 
-    local function proc(folder)
+    if not Character or not IsAlive(Character) then return end
+    local myRoot = Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local pos = myRoot.Position
+
+    local function scan(folder)
         if not folder then return end
         for _, e in ipairs(folder:GetChildren()) do
-            if e ~= c and self:IsEntityAlive(e) then
+            if e ~= Character and IsAlive(e) then
                 local root = e:FindFirstChild("HumanoidRootPart")
-                if root and (pos - root.Position).Magnitude <= dist then
-                    local hitPart = e:FindFirstChild("Head") or root 
-                    table.insert(bh, {e, hitPart})
-                    self.EnemyRootPart = root
+                if root then
+                    if (pos - root.Position).Magnitude <= ATTACK_DISTANCE then
+                        EnemyRootPart = root
+                        cachedTarget = {e, root}
+                        return true
+                    end
                 end
             end
         end
     end
 
-    if Config.AttackMobs then proc(Workspace:FindFirstChild("Enemies")) end
-    if Config.AttackPlayers then proc(Workspace:FindFirstChild("Characters")) end
-    return bh
+    if scan(Workspace:FindFirstChild("Enemies")) then return cachedTarget end
+    if scan(Workspace:FindFirstChild("Characters")) then return cachedTarget end
+
+    return cachedTarget
 end
 
-function FastAttack:Attack()
-    if not Config.AutoClickEnabled then return end
-    
-    local now = tick()
-    local delay = MIN_DELAY + (MAX_DELAY - MIN_DELAY) * math.random()
-    if now - lastAttackTime < delay then
-        return
-    end
-    
-    local char = Player.Character
-    if not char or not self:IsEntityAlive(char) then return end
-    
-    local tool = char:FindFirstChildOfClass("Tool")
+--// Attack chính
+local function Attack()
+    if not Character or not IsAlive(Character) then return end
+
+    local tool = Character:FindFirstChildOfClass("Tool")
     if not tool then return end
 
-    if tool.ToolTip == "Gun" and getgenv().PMT_GunFast then
-        pcall(function() tool:Activate() end)
-        local targets = self:GetBladeHits(char, 500)
-        if targets[1] then
-            pcall(function()
-                ShootGunEvent:FireServer(targets[1][2].Position, {targets[1][2]})
-            end)
+    local target = GetTarget()
+    if not target then return end
+
+    --// Gun
+    if tool.ToolTip == "Gun" then
+        tool:Activate()
+
+        local pos = target[2].Position
+        for i = 1, 2 do -- spam nhẹ
+            ShootGunEvent:FireServer(pos, {target[2]})
         end
-        lastAttackTime = now
         return
     end
 
-    local hits = self:GetBladeHits(char, 300)
-    if #hits > 0 then
-        RegisterAttack:FireServer(0)
-        if self.HitFunction then
-            self.HitFunction(self.EnemyRootPart, hits)
-        else
-            local args = {hits[1][2], {}}
-            for i, v in ipairs(hits) do
-                args[2][i] = v
-            end
-            RegisterHit:FireServer(unpack(args))
-        end
-        lastAttackTime = now
-    end
+    --// Melee
+    RegisterAttack:FireServer(0)
+    RegisterHit:FireServer(target[2], {target})
 end
 
-local AttackInstance = FastAttack.new()
+--// Loop nhanh
+RunService.RenderStepped:Connect(Attack)
 
-RunService.Heartbeat:Connect(function()
-    pcall(function() AttackInstance:Attack() end)
-end)
-
+--// Hook tăng tốc thêm
 local mt = getrawmetatable(game)
 local old = mt.__namecall
 setreadonly(mt, false)
 
 mt.__namecall = newcclosure(function(self, ...)
     if getnamecallmethod() == "FireServer" and self.Name == "RegisterAttack" then
-        AttackInstance:Attack()
+        Attack()
         return
     end
     return old(self, ...)
 end)
+
 setreadonly(mt, true)
