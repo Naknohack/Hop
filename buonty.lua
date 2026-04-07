@@ -310,6 +310,7 @@ getgenv().lasttarrget = nil
 getgenv().checked = {}
 getgenv().pl = game.Players:GetPlayers()
 getgenv().killed = nil
+
 -- Định nghĩa thế giới và cấu hình đảo
 local placeId = game.PlaceId
 local worldMap = {
@@ -326,9 +327,10 @@ if worldMap[placeId] then
     elseif placeId == 100117331123089 then
         World3 = true
     end
+else
+    -- đã xóa Kick, không làm gì nữa
 end
 
--- Cấu hình đảo dựa trên thế giới
 local distbyp, island
 if World3 then 
     distbyp = 5000
