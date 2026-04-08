@@ -1,40 +1,34 @@
-local p=game.Players.LocalPlayer
-local rs=game.ReplicatedStorage
-local Net=rs.Modules.Net
-cục bộ RH,RA=Net["RE/RegisterHit"],Net["RE/RegisterAttack"]
-
-local SendHit
-pcall(function()
-    SendHit=getsenv(p.PlayerScripts:WaitForChildOfClass("LocalScript"))._G.SendHitsToServer
-kết thúc)
-
-cục bộ R=999
-local Parts={"Head","HumanoidRootPart","LeftHand","RightHand","LeftLowerArm","RightLowerArm"}
-
-hàm cục bộ ngu(v)
-    local h=v:FindFirstChild("Humanoid")
-    local r=v:FindFirstChild("HumanoidRootPart")
-    trả về h và r và h.Health>0
-kết thúc
-
-hàm cục bộ trieu()
-    cục bộ t,c={},p.Ký tự
-    nếu không phải c thì trả về t kết thúc
-    local hrp=c.HumanoidRootPart
+function FastAttackFruit()
+    if getgenv().IsUsingFastAttack then return end
     
-    for _,v in pairs(workspace.Enemies:GetChildren()) do
-        nếu ngu(v) và (v.HumanoidRootPart.Position-hrp.Position).Magnitude<=R thì
-            t[#t+1]=v
-        kết thúc
-    kết thúc
-    for _,v in pairs(workspace.Characters:GetChildren()) do
-        nếu v~=c và ngu(v) và (v.HumanoidRootPart.Position-hrp.Position).Magnitude<=R thì
-            t[#t+1]=v
-        kết thúc
-    kết thúc
-    trả lại t
-kết thúc
-
+    local char = player.Character
+    local tool = char and char:FindFirstChildOfClass("Tool")
+    
+    if tool and tool.ToolTip == "Blox Fruit" and HasM1Fruit() then
+        getgenv().IsUsingFastAttack = true
+        
+        for i = 1, getgenv().AutoBounty.Combat.FastAttackSpeed or 12 do
+            task.spawn(function()
+                pcall(function()
+                    tool:Activate()
+                    
+                    local remote = tool:FindFirstChild("LeftClickRemote") or tool:FindFirstChild("Remote")
+                    if remote then
+                        remote:FireServer(Vector3.new(0,0,0), 1)
+                    end
+                    
+                    Net:InvokeServer("Attack", {
+                        [1] = getgenv().targ and getgenv().targ.Character and getgenv().targ.Character:FindFirstChild("HumanoidRootPart")
+                    })
+                end)
+            end)
+            
+            task.wait(0.01) 
+        end
+        
+        getgenv().IsUsingFastAttack = false
+    end
+end
 hàm cục bộ hh(v)
     return v:FindFirstChild(Parts[math.random(#Parts)]) or v.HumanoidRootPart
 kết thúc
